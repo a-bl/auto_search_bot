@@ -15,4 +15,5 @@ site_parser/*
 telegram_bot/autos.csv
 telegram_bot/autos.json
 telegram_bot/queries.csv
+telegram_bot/.env
 
