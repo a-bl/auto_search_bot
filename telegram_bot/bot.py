@@ -18,6 +18,13 @@ dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
 if os.path.exists(dotenv_path):
     load_dotenv(dotenv_path)
 
+TOKEN = os.environ.get('TOKEN')
+PG_HOST = os.environ.get('PG_HOST')
+PG_PORT = os.environ.get('PG_PORT')
+PG_USER = os.environ.get('PG_USER')
+PG_PASS = os.environ.get('PG_PASS')
+PG_DB = os.environ.get('PG_DB')
+
 # Enable logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
@@ -33,7 +40,7 @@ queries = {}
 
 
 def main():
-    db = pd.read_csv('autos.csv')
+    # db = pd.read_csv('autos.csv')
     dbs = []
 
     """Start the bot."""
@@ -42,7 +49,6 @@ def main():
     # Post version 12 this will no longer be necessary
     # bot = Bot(token=keys.TOKEN)
 
-    TOKEN = os.environ.get('TOKEN')
     bot = Bot(token=TOKEN)
 
     # Get the dispatcher to register handlers
@@ -52,6 +58,7 @@ def main():
     @dp.message_handler(commands=['start'])
     async def process_start_command(message: types.Message):
         markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+        # print(PG_DB, PG_PORT, PG_USER, PG_PASS, PG_HOST)
         srch = types.KeyboardButton('/search')
         markup.add(srch)
         await bot.send_message(message.chat.id, 'Привет! Я бот для поиска авто на auto.ria.com\nЧтобы создать запрос '
@@ -124,11 +131,11 @@ def main():
 
     @dp.message_handler(commands=['search'])
     async def search(message: types.Message):
-        conn = psycopg2.connect(dbname="telegram_bot_db",
-                                user="postgres_user",
-                                password="postgres_password",
-                                host="localhost",
-                                port=5432)
+        conn = psycopg2.connect(dbname=PG_DB,
+                                user=PG_USER,
+                                password=PG_PASS,
+                                host=PG_HOST,
+                                port=PG_PORT)
         cursor = conn.cursor()
         cursor.execute("SELECT brand FROM telegram_bot_db")
         auto_brands_db = cursor.fetchall()
@@ -151,11 +158,11 @@ def main():
 
     @dp.message_handler(content_types=['text'])
     async def models(message):
-        conn = psycopg2.connect(dbname="telegram_bot_db",
-                                user="postgres_user",
-                                password="postgres_password",
-                                host="localhost",
-                                port=5432)
+        conn = psycopg2.connect(dbname=PG_DB,
+                                user=PG_USER,
+                                password=PG_PASS,
+                                host=PG_HOST,
+                                port=PG_PORT)
         cursor = conn.cursor()
         cursor.execute("SELECT brand FROM telegram_bot_db")
         auto_brands_db = cursor.fetchall()
@@ -176,11 +183,11 @@ def main():
 
             await bot.send_message(message.chat.id, "Какая модель Вас интересует?")
 
-            conn = psycopg2.connect(dbname="telegram_bot_db",
-                                    user="postgres_user",
-                                    password="postgres_password",
-                                    host="localhost",
-                                    port=5432)
+            conn = psycopg2.connect(dbname=PG_DB,
+                                    user=PG_USER,
+                                    password=PG_PASS,
+                                    host=PG_HOST,
+                                    port=PG_PORT)
             cursor = conn.cursor()
             cursor.execute(f"SELECT model FROM telegram_bot_db WHERE brand = '{brand}'")
             auto_models_db = cursor.fetchall()
@@ -200,23 +207,23 @@ def main():
             await message.answer(
                 '/'.join([f'{m}\n' for m in models])
             )
-        elif message.text[1::].replace('_', '-') in db['model'].str.split(' ', 1, expand=True)[0].values:
-        # elif message.text[1::].replace('_', '-') in models:
+        # elif message.text[1::].replace('_', '-') in db['model'].str.split(' ', 1, expand=True)[0].values:
+        elif message.text[1::].replace('_', '-') in models:
             model = message.text[1::]
             model = model.replace('_', '-')
             print(model)
             queries['model'] = model
             dbs.clear()
-            dbs.append(db[db['model'].str.split(' ', 1, expand=True)[0].values == model])
+            # dbs.append(db[db['model'].str.split(' ', 1, expand=True)[0].values == model])
             # dbs.append(models)
 
             await bot.send_message(message.chat.id, 'Какой год выпуска Вас интересует?')
 
-            conn = psycopg2.connect(dbname="telegram_bot_db",
-                                    user="postgres_user",
-                                    password="postgres_password",
-                                    host="localhost",
-                                    port=5432)
+            conn = psycopg2.connect(dbname=PG_DB,
+                                    user=PG_USER,
+                                    password=PG_PASS,
+                                    host=PG_HOST,
+                                    port=PG_PORT)
             cursor = conn.cursor()
             cursor.execute(f"SELECT year FROM telegram_bot_db WHERE model = '{model}'")
             auto_years_db = cursor.fetchall()
@@ -225,8 +232,8 @@ def main():
                 if year[0] not in auto_years:
                     auto_years.append(year[0])
             # print(auto_years)
-            for year in db[db['model'].str.split(' ', 1, expand=True)[0].values == model]['year'].values:
-            # for year in auto_years:
+            # for year in db[db['model'].str.split(' ', 1, expand=True)[0].values == model]['year'].values:
+            for year in auto_years:
                 if year not in years:
                     years.append(year)
             years = sorted(years)
@@ -237,16 +244,16 @@ def main():
                 '/'.join([f'{str(years[i])}\n' for i in range(0, len(years))])
             )
 
-        elif int(message.text[1::]) in db['year'].values:
-        # elif int(message.text[1::]) in years:
+        # elif int(message.text[1::]) in db['year'].values:
+        elif int(message.text[1::]) in years:
             year = int(message.text[1::])
             print(year)
             queries['year'] = year
-            # conn = psycopg2.connect(dbname="telegram_bot_db",
-            #                         user="postgres_user",
-            #                         password="postgres_password",
-            #                         host="localhost",
-            #                         port=5432)
+            # conn = psycopg2.connect(dbname=PG_DB,
+            #                         user=PG_USER,
+            #                         password=PG_PASS,
+            #                         host=PG_HOST,
+            #                         port=PG_PORT)
             # cursor = conn.cursor()
             # cursor.execute(f"SELECT link FROM telegram_bot_db WHERE year = '{year}'")
             # auto_links_db = cursor.fetchall()
@@ -255,7 +262,7 @@ def main():
             #     if link[0] not in auto_links:
             #         auto_links.append(link[0])
 
-            dbs.append(dbs[0][db['year'] == year]['link'])
+            # dbs.append(dbs[0][db['year'] == year]['link'])
             queries['links'] = dbs[1].values
             # dbs.append(auto_links)
             print(len(dbs[1]), 'links')
