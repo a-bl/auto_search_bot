@@ -3,7 +3,7 @@ import random
 
 import pandas as pd
 
-import config as keys
+# import config as keys
 import psycopg2
 
 import requests
