@@ -12,6 +12,12 @@ from aiogram.dispatcher import Dispatcher
 from aiogram.utils import executor
 from aiogram.utils.callback_data import CallbackData
 
+import os
+from dotenv import load_dotenv
+dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
+if os.path.exists(dotenv_path):
+    load_dotenv(dotenv_path)
+
 # Enable logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
@@ -34,7 +40,10 @@ def main():
     # Create the Updater and pass it your bot's token.
     # Make sure to set use_context=True to use the new context based callbacks
     # Post version 12 this will no longer be necessary
-    bot = Bot(token=keys.TOKEN)
+    # bot = Bot(token=keys.TOKEN)
+
+    TOKEN = os.environ.get('TOKEN')
+    bot = Bot(token=TOKEN)
 
     # Get the dispatcher to register handlers
     dp = Dispatcher(bot)
