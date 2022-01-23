@@ -10,6 +10,6 @@
 #  value = [for nat in aws_eip.eip : nat.public_ip]
 #}
 
-output "lb_ip" {
-  value = aws_lb.test.dns_name
-}
+#output "lb_ip" {
+#  value = aws_lb.test.dns_name
+#}

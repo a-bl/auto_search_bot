@@ -1,10 +1,10 @@
-data "aws_iam_policy_document" "app" {
-  statement {
-    actions   = ["s3:Get*",
-                 "s3:List*"]
-    resources = ["*"]
-  }
-}
+#data "aws_iam_policy_document" "app" {
+#  statement {
+#    actions   = ["s3:Get*",
+#                 "s3:List*"]
+#    resources = ["*"]
+#  }
+#}
 
 data "aws_iam_policy_document" "ecs_assume_role" {
   statement {
@@ -41,13 +41,13 @@ resource "aws_iam_role_policy_attachment" "app_ecr" {
   policy_arn = data.aws_iam_policy.ecr.arn
 }
 
-resource "aws_iam_role" "app_task_role" {
-  name = "app_task_role"
-  description = "ECS task role with access to S3 for app"
-  assume_role_policy = data.aws_iam_policy_document.ecs_assume_role.json
+#resource "aws_iam_role" "app_task_role" {
+#  name = "app_task_role"
+#  description = "ECS task role with access to S3 for app"
+#  assume_role_policy = data.aws_iam_policy_document.ecs_assume_role.json
 
-  inline_policy {
-    name = "s3"
-    policy = data.aws_iam_policy_document.app.json
-  }
-}
+#  inline_policy {
+#    name = "s3"
+#    policy = data.aws_iam_policy_document.app.json
+#  }
+#}
