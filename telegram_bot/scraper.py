@@ -2,9 +2,6 @@ import requests
 from bs4 import BeautifulSoup
 import pandas as pd
 import json
-from sqlalchemy import create_engine
-
-engine = create_engine('postgresql://postgres_user:postgres_password@localhost:5432/telegram_bot_db')
 
 url = 'https://auto.ria.com/uk/legkovie/'
 params = {'page': 1}
@@ -30,7 +27,6 @@ while params['page'] <= pages:
     response = requests.get(url, params=params)
     soup = BeautifulSoup(response.text, 'lxml')
     items = soup.find_all('section', class_='ticket-item')
-    # print(items)
 
     for n, i in enumerate(items, start=n+1):
         itemBrand = i.find('span', class_='blue bold').text.split()[0]
@@ -76,8 +72,7 @@ while params['page'] <= pages:
     # last_page_num = 400
     pages = last_page_num if pages < last_page_num else pages
     params['page'] += 1
-# print(len(itemsBrand), len(itemsModel), len(itemsPrice), len(itemsYear), len(itemsRegion), len(itemsTransmission),
-#       len(itemsFuel), len(itemsEngineCapacity), len(itemsMileage))
+
 df = pd.DataFrame({
     'brand': itemsBrand,
     'model': itemsModel,
@@ -91,7 +86,6 @@ df = pd.DataFrame({
     'link': itemsLink
 })
 df.to_csv('autos.csv', index=False)
-df.to_sql('telegram_bot_db', engine, if_exists='replace', index=False)
 
 with open('autos.json', 'w') as f:
     f.write(json.dumps(to_json, indent=4))
