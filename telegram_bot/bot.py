@@ -22,7 +22,6 @@ if os.path.exists(dotenv_path):
 
 TOKEN = os.environ.get('TOKEN')
 PG_HOST = os.environ.get('PG_HOST')
-PG_PORT = os.environ.get('PG_PORT')
 PG_USER = os.environ.get('PG_USER')
 PG_PASS = os.environ.get('PG_PASS')
 PG_DB = os.environ.get('PG_DB')
@@ -58,7 +57,7 @@ def main():
         waiting_for_links = State()
 
     # Get the dispatcher to register handlers
-    dp = Dispatcher(bot, storage=MemoryStorage())
+    dp = Dispatcher(bot, storage=MemoryStorage(), )
 
     # on different commands - answer in Telegram
     @dp.message_handler(commands=['start'])
@@ -79,7 +78,11 @@ def main():
 
     @dp.message_handler(commands=['save'])
     async def save(message: types.Message):
-        await bot.send_message(message.chat.id, 'Вы сохранили свой запрос!')
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+        sv = types.KeyboardButton('/save')
+        srch = types.KeyboardButton('/search')
+        markup.add(sv, srch)
+        await bot.send_message(message.chat.id, 'Вы сохранили свой запрос!', reply_markup=markup)
 
         await subscribe(message)
 
@@ -139,8 +142,7 @@ def main():
         conn = psycopg2.connect(dbname=PG_DB,
                                 user=PG_USER,
                                 password=PG_PASS,
-                                host=PG_HOST,
-                                port=PG_PORT)
+                                host=PG_HOST)
         cursor = conn.cursor()
         cursor.execute("SELECT brand FROM telegram_bot_db")
         auto_brands_db = cursor.fetchall()
@@ -163,8 +165,7 @@ def main():
         conn = psycopg2.connect(dbname=PG_DB,
                                 user=PG_USER,
                                 password=PG_PASS,
-                                host=PG_HOST,
-                                port=PG_PORT)
+                                host=PG_HOST)
         cursor = conn.cursor()
         cursor.execute("SELECT brand FROM telegram_bot_db")
         auto_brands_db = cursor.fetchall()
@@ -186,8 +187,7 @@ def main():
             conn = psycopg2.connect(dbname=PG_DB,
                                     user=PG_USER,
                                     password=PG_PASS,
-                                    host=PG_HOST,
-                                    port=PG_PORT)
+                                    host=PG_HOST)
             cursor = conn.cursor()
             cursor.execute(f"SELECT model FROM telegram_bot_db WHERE brand = '{brand}'")
             auto_models_db = cursor.fetchall()
@@ -210,8 +210,7 @@ def main():
             conn = psycopg2.connect(dbname=PG_DB,
                                     user=PG_USER,
                                     password=PG_PASS,
-                                    host=PG_HOST,
-                                    port=PG_PORT)
+                                    host=PG_HOST)
             cursor = conn.cursor()
             cursor.execute(f"SELECT model FROM telegram_bot_db WHERE brand = '{data['brand']}'")
             auto_models_db = cursor.fetchall()
@@ -224,14 +223,14 @@ def main():
                 data['model'] = model
                 print(model)
                 queries['model'] = model
+                dbs.clear()
 
                 await bot.send_message(message.chat.id, 'Какой год выпуска Вас интересует?')
 
                 conn = psycopg2.connect(dbname=PG_DB,
                                         user=PG_USER,
                                         password=PG_PASS,
-                                        host=PG_HOST,
-                                        port=PG_PORT)
+                                        host=PG_HOST)
                 cursor = conn.cursor()
                 cursor.execute(f"SELECT year FROM telegram_bot_db WHERE model = '{data['model']}'")
                 auto_years_db = cursor.fetchall()
@@ -257,8 +256,7 @@ def main():
             conn = psycopg2.connect(dbname=PG_DB,
                                     user=PG_USER,
                                     password=PG_PASS,
-                                    host=PG_HOST,
-                                    port=PG_PORT)
+                                    host=PG_HOST)
             cursor = conn.cursor()
             cursor.execute(
                 f"SELECT year FROM telegram_bot_db WHERE brand = '{data['brand']}' AND model = '{data['model']}'")
@@ -287,8 +285,7 @@ def main():
                 conn = psycopg2.connect(dbname=PG_DB,
                                         user=PG_USER,
                                         password=PG_PASS,
-                                        host=PG_HOST,
-                                        port=PG_PORT)
+                                        host=PG_HOST)
                 cursor = conn.cursor()
                 cursor.execute(f"SELECT link FROM telegram_bot_db WHERE brand = '{data['brand']}' AND "
                                f"model = '{data['model']}' AND year = '{data['year']}'")
@@ -305,7 +302,7 @@ def main():
                 print(len(auto_links), 'links')
                 await bot.send_message(message.chat.id, 'Предложения по вашему запросу')
 
-                await links_index(message, state, data['year'])
+                await links_index(message)
                 # queries_from = pd.read_csv('queries.csv')
                 queries_df = pd.DataFrame(
                     data={'user': queries['user'], 'brand': queries['brand'], 'model': queries['model'],
@@ -325,7 +322,6 @@ def main():
 
     def get_links_keyboard(page: int = 0) -> types.InlineKeyboardMarkup:
         keyboard = types.InlineKeyboardMarkup(row_width=1)
-        print('dbs[0]', dbs[0])
         has_next_page = len(dbs[0]) > page + 1
 
         if page != 0:
@@ -354,57 +350,24 @@ def main():
         return keyboard
 
     @dp.message_handler(commands=["links"])
-    async def links_index(message: types.Message, state: FSMContext, year):
-        async with state.proxy() as data:
-            data['year'] = year
-            conn = psycopg2.connect(dbname=PG_DB,
-                                    user=PG_USER,
-                                    password=PG_PASS,
-                                    host=PG_HOST,
-                                    port=PG_PORT)
-            cursor = conn.cursor()
-            cursor.execute(f"SELECT link FROM telegram_bot_db WHERE brand = '{data['brand']}' AND "
-                           f"model = '{data['model']}' AND year = '{data['year']}'")
-            auto_links_db = cursor.fetchall()
-            auto_links = []
-            for link in auto_links_db:
-                if link[0] not in auto_links:
-                    auto_links.append(link[0])
-            data['links'] = auto_links
-            link_data = auto_links[0]
-            print('link data 0', link_data)
-            keyboard = get_links_keyboard()  # Page: 0
+    async def links_index(message: types.Message):
+        link_data = dbs[0][0]
+        keyboard = get_links_keyboard()  # Page: 0
 
-            await bot.send_message(
-                chat_id=message.chat.id,
-                text=f'{link_data}',
-                reply_markup=keyboard
-            )
+        await bot.send_message(
+            chat_id=message.chat.id,
+            text=f'{link_data}',
+            reply_markup=keyboard
+        )
 
-    @dp.callback_query_handler(links_callback.filter())
-    async def link_page_handler(query: types.CallbackQuery, callback_data: dict, state: FSMContext):
-        async with state.proxy() as data:
-            print('YA tyt', data)
-            page = int(callback_data.get("page"))
-            conn = psycopg2.connect(dbname=PG_DB,
-                                    user=PG_USER,
-                                    password=PG_PASS,
-                                    host=PG_HOST,
-                                    port=PG_PORT)
-            cursor = conn.cursor()
-            cursor.execute(f"SELECT link FROM telegram_bot_db WHERE brand = {data['brand']} AND "
-                           f"model = {data['model']} AND year = '{data['year']}'")
-            auto_links_db = cursor.fetchall()
-            auto_links = []
-            for link in auto_links_db:
-                if link[0] not in auto_links:
-                    auto_links.append(link[0])
-            data['links'] = auto_links
-            link_data = auto_links[page]
-            print('Link data page', link_data)
-            keyboard = get_links_keyboard(page)
+    @dp.callback_query_handler(links_callback.filter(page=1))
+    async def link_page_handler(query: types.CallbackQuery, callback_data: dict):
+        page = int(callback_data.get("page"))
+        print(page)
+        link_data = dbs[0][page]
+        keyboard = get_links_keyboard(page)
 
-            await query.message.edit_text(text=f'{link_data}', reply_markup=keyboard)
+        await query.message.edit_text(text=f'{link_data}', reply_markup=keyboard)
 
     #########
     # # log all errors
