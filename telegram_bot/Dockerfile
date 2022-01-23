@@ -1,10 +1,8 @@
 FROM python:3.8-slim-buster
 
-WORKDIR /app
-
 ENV PYTHONDONTWRITTEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
-#ENV FLASK_APP flask_app.py
+
 ENV DATABASE_URL 'postgresql://postgres_user:postgres_password@localhost/telegram_bot_db'
 
 
