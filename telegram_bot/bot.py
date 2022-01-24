@@ -1,7 +1,7 @@
 import logging
 
 import pandas as pd
-
+import math
 import psycopg2
 # from scraper import scrape_query
 import requests
@@ -69,6 +69,8 @@ def main():
         markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
         srch = types.KeyboardButton('/search')
         markup.add(srch)
+        await bot.send_chat_action(message.chat.id, types.ChatActions.TYPING)
+        await asyncio.sleep(1)
         await bot.send_message(message.chat.id, 'Привет! Я бот для поиска авто на auto.ria.com\nЧтобы создать запрос '
                                                 'нажми на кнопку поиска', reply_markup=markup)
 
@@ -78,31 +80,42 @@ def main():
 
     @dp.message_handler(commands=['help'])
     async def process_help_command(message: types.Message):
+        await bot.send_chat_action(message.chat.id, types.ChatActions.TYPING)
+        await asyncio.sleep(1)
         await message.reply("Для поиска авто воспользуйся командой /search!")
 
     @dp.message_handler(commands=['save'])
     async def save(message: types.Message, state):
         markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-        sv = types.KeyboardButton('/check')
+        sv = types.KeyboardButton('/save')
         srch = types.KeyboardButton('/search')
         markup.add(sv, srch)
+        await bot.send_chat_action(message.chat.id, types.ChatActions.TYPING)
+        await asyncio.sleep(1)
         await bot.send_message(message.chat.id, 'Вы сохранили свой запрос!', reply_markup=markup)
 
         await subscribe(message, state)
 
     async def subscribe(message: types.Message, state):
         async with state.proxy() as data:
+            await bot.send_chat_action(message.chat.id, types.ChatActions.TYPING)
+            await asyncio.sleep(1)
             await bot.send_message(message.chat.id, 'Проверяю наличие новых предложений по вашему запросу!')
             await bot.send_chat_action(message.chat.id, types.ChatActions.TYPING)
             # await asyncio.sleep(1)
-            new_links = scrape_query(data['links'])
+            print(data['links'])
+            new_links = scrape_query(data['brand'], data['model'], data['year'], data['links'])
             print(new_links)
             if len(new_links) == 0:
                 await bot.send_message(message.chat.id, 'Нет новых предложений 😢')
-            await bot.send_message(message.chat.id, 'Новые предложения по вашему запросу')
+            else:
+                for link in new_links:
+                    if link not in data['links']:
+                        data['links'].append(link)
+                print(data['links'])
+                await bot.send_message(message.chat.id, 'Новые предложения по вашему запросу')
 
-            await links_index(message)
-
+                await bot.send_message(message.chat.id, f'{new_links}')
 
     @dp.message_handler(commands=['search'])
     async def search(message: types.Message):
@@ -117,10 +130,13 @@ def main():
         for brand in auto_brands_db:
             if brand[0] not in auto_brands:
                 auto_brands.append(brand[0])
+        await bot.send_chat_action(message.chat.id, types.ChatActions.TYPING)
+        await asyncio.sleep(1)
         await bot.send_message(message.chat.id, 'Какая марка Вас интересует?')
         brands = sorted(auto_brands)
         brands[0] = '/' + brands[0]
 
+        await bot.send_chat_action(message.chat.id, types.ChatActions.TYPING)
         await message.answer(
             '/'.join([f'{b}\n' for b in brands])
         )
@@ -149,6 +165,8 @@ def main():
             queries['user'] = message.from_user.id
             queries['brand'] = brand
 
+            await bot.send_chat_action(message.chat.id, types.ChatActions.TYPING)
+            await asyncio.sleep(1)
             await bot.send_message(message.chat.id, "Какая модель Вас интересует?")
             await Auto.waiting_for_model.set()
             conn = psycopg2.connect(dbname=PG_DB,
@@ -166,6 +184,7 @@ def main():
             models = sorted(auto_models)
             models[0] = '/' + models[0]
 
+            await bot.send_chat_action(message.chat.id, types.ChatActions.TYPING)
             await message.answer(
                 '/'.join([f'{m}\n' for m in models])
             )
@@ -192,6 +211,8 @@ def main():
                 queries['model'] = model
                 dbs.clear()
 
+                await bot.send_chat_action(message.chat.id, types.ChatActions.TYPING)
+                await asyncio.sleep(1)
                 await bot.send_message(message.chat.id, 'Какой год выпуска Вас интересует?')
 
                 conn = psycopg2.connect(dbname=PG_DB,
@@ -199,7 +220,7 @@ def main():
                                         password=PG_PASS,
                                         host=PG_HOST)
                 cursor = conn.cursor()
-                cursor.execute(f"SELECT year FROM telegram_bot_db WHERE model = '{data['model']}'")
+                cursor.execute(f"SELECT year FROM telegram_bot_db WHERE brand = '{data['brand']}' AND model = '{data['model']}'")
                 auto_years_db = cursor.fetchall()
                 auto_years = []
                 for year in auto_years_db:
@@ -212,6 +233,7 @@ def main():
                 years = sorted(years)
                 years[0] = '/' + str(years[0])
 
+                await bot.send_chat_action(message.chat.id, types.ChatActions.TYPING)
                 await message.answer(
                     '/'.join([f'{str(years[i])}\n' for i in range(0, len(years))])
                 )
@@ -232,7 +254,6 @@ def main():
             for year in auto_years_db:
                 if year[0] not in auto_years:
                     auto_years.append(year[0])
-
             if message.text[1::] == 'start':
                 await process_start_command(message)
             elif message.text[1::] == 'search':
@@ -243,7 +264,6 @@ def main():
                 await process_rm_command(message)
             elif message.text[1::] == 'help':
                 await process_help_command(message)
-
             elif message.text[1::] in auto_years:
                 year = int(message.text[1::])
                 data['year'] = year
@@ -268,6 +288,9 @@ def main():
                 queries['links'] = auto_links
                 data['links'] = auto_links
                 print(len(auto_links), 'links')
+
+                await bot.send_chat_action(message.chat.id, types.ChatActions.TYPING)
+                await asyncio.sleep(1)
                 await bot.send_message(message.chat.id, 'Предложения по вашему запросу')
 
                 await links_index(message)
@@ -282,11 +305,14 @@ def main():
                 sv = types.KeyboardButton('/save')
                 srch = types.KeyboardButton('/search')
                 markup.add(sv, srch)
+
+                await bot.send_chat_action(message.chat.id, types.ChatActions.TYPING)
+                await asyncio.sleep(1)
                 await bot.send_message(message.chat.id, 'Если Вы хотите сохранить Ваш запрос и в дальнейшем получать '
                                                         'рассылку - нажмите кнопку сохранения.\nЕсли Вы хотите продолжить '
                                                         'поиск - нажмите кнопку поиска.', reply_markup=markup)
 
-    links_callback = CallbackData("links", "page")
+    links_callback = CallbackData("Link", "page")
 
     def get_links_keyboard(page: int = 0) -> types.InlineKeyboardMarkup:
         keyboard = types.InlineKeyboardMarkup(row_width=1)
@@ -328,8 +354,9 @@ def main():
             reply_markup=keyboard
         )
 
-    @dp.callback_query_handler(links_callback.filter(page=1))
+    @dp.callback_query_handler(links_callback.filter())
     async def link_page_handler(query: types.CallbackQuery, callback_data: dict):
+        print(callback_data)
         page = int(callback_data.get("page"))
         print(page)
         link_data = dbs[0][page]
@@ -337,7 +364,7 @@ def main():
 
         await query.message.edit_text(text=f'{link_data}', reply_markup=keyboard)
 
-    def scrape_query(links):
+    def scrape_query(brand, model, year, links):
         url = 'https://auto.ria.com/uk/legkovie/'
         params = {'page': 1}
         # set a number greater than the number of the first page to start the cycle
@@ -413,17 +440,29 @@ def main():
         cursor = conn.cursor()
         print('Connecting to db')
         new_links = []
-        for link in df['link']:
+        df_m = df[['model', 'year', 'link']].where(df['brand'] == brand)
+        df_y = df_m[['year', 'link']].where(df_m['model'] == model)
+        df_y = df_y.dropna()
+        df_y['year'] = df_y['year'].astype(int)
+        for link in df_y[df_y['year'] == year]['link']:
             if link not in links:
-                for i in range(len(df['link'])):
-
+                if str(link) != 'NaN':
+                    new_links.append(link)
                     cursor.execute('INSERT INTO telegram_bot_db (brand, model, price, year, region, transmission, fuel_type,'
                                    'engine_capacity, mileage, link) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)',
-                                   (df['brand'][i], df['model'][i], df['price'][i], df['year'][i], df['region'][i],
-                                    df['transmission'][i], df['fuel_type'][i], df['engine_capacity'][i], df['mileage'][i],
-                                    df['link'][i]))
+                                   (df.loc[df.index[df['link'] == link]]['brand'].to_string(index=False),
+                                    df.loc[df.index[df['link'] == link]]['model'].to_string(index=False),
+                                    df.loc[df.index[df['link'] == link]]['price'].to_string(index=False),
+                                    df.loc[df.index[df['link'] == link]]['year'].to_string(index=False),
+                                    df.loc[df.index[df['link'] == link]]['region'].to_string(index=False),
+                                    df.loc[df.index[df['link'] == link]]['transmission'].to_string(index=False),
+                                    df.loc[df.index[df['link'] == link]]['fuel_type'].to_string(index=False),
+                                    df.loc[df.index[df['link'] == link]]['engine_capacity'].to_string(index=False),
+                                    df.loc[df.index[df['link'] == link]]['mileage'].to_string(index=False),
+                                    df.loc[df.index[df['link'] == link]]['link'].to_string(index=False)
+                                    ))
                     conn.commit()
-                    new_links.append(link)
+
         return new_links
 
     #########
