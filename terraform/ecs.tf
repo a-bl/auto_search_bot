@@ -3,11 +3,17 @@ resource "aws_ecs_task_definition" "app" {
   requires_compatibilities = ["EC2"]
   network_mode             = "awsvpc"
   execution_role_arn       = aws_iam_role.app_execution_role.arn
+  depends_on               = [aws_iam_role_policy_attachment.app_ecr]
   container_definitions    = jsonencode([
     {
       name         = "auto_search_bot"
       image        = "${aws_ecr_repository.repo.repository_url}:latest"
       essential    = true
+      memory       = 256
+      secrets      = {
+        name      = "TOKEN"
+        valueFrom = aws_ssm_parameter.telegram_token.arn
+      }
     }
   ])
 
