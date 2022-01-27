@@ -1,17 +1,15 @@
 version: "0.2"
 
-env:
-  variables:
-    SCRIPT: "bot.py"
-    REGISTRY_ID: "163715734974"
-    REPOSITORY_REGION: "eu-central-1"
-    REPO_NAME: "${REGISTRY_ID}.dkr.ecr.${REPOSITORY_REGION}.amazonaws.com/auto_search_bot"
-    TAG: "latest"
-
 phases:
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
   build:
     commands:
-      - cd "${CODEBUILD_SRC_DIR}/telegram_bot"
-      - aws ecr get-login-password --region ${REPOSITORY_REGION} | docker login --username AWS --password-stdin ${REGISTRY_ID}.dkr.ecr.${REPOSITORY_REGION}.amazonaws.com
-      - docker build -t ${REPO_NAME}:${TAG} --build-arg SCRIPT=${SCRIPT} -f ./Dockerfile .
-      - docker push ${REPO_NAME}:${TAG}
+      - cd telegram_bot/
+      - docker build -t $IMAGE_REPO_NAME:$IMAGE_TAG --build-spec SCRIPT=$SCRIPT .
+      - docker tag $IMAGE_REPO_NAME:$IMAGE_TAG $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG
+  post_build:
+    commands:
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG
