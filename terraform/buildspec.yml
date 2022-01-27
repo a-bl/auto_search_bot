@@ -1,0 +1,9 @@
+env:
+  variables:
+    SCRIPT: "bot.py"
+
+phases:
+  build:
+    commands:
+      cd "${CODEBUILD_SRC_DIR}/telegram_bot"
+      - docker build -t bot --build-arg SCRIPT=${SCRIPT} .
