@@ -1,6 +1,7 @@
 env:
   variables:
     SCRIPT: "bot.py"
+    TAG: "latest"
 
 phases:
   build:
