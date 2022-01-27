@@ -35,7 +35,7 @@ resource "aws_ecs_service" "app" {
 
   network_configuration {
     subnets         = [for subnet in aws_subnet.priv : subnet.id]
-    security_groups = [aws_security_group.demo.id]
+    security_groups = [aws_security_group.app.id]
   }
 
   ordered_placement_strategy {

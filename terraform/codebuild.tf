@@ -1,6 +1,69 @@
-#resource "aws_codebuild_project" "final-demo" {
-#  name = "final-demo"
-#  build_timeout = 5
-#  queued_timeout = 5
-#  service_role = aws_iam_role.codebuild-app-final-demo.arn
+data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
+
+resource "aws_codebuild_source_credential" "github" {
+  server_type = "GITHUB"
+  auth_type   = "PERSONAL_ACCESS_TOKEN"
+  token       = var.github_token
+}
+
+resource "aws_codebuild_project" "app" {
+  name          = "auto_search_bot"
+  service_role  = aws_iam_role.codebuild_role.arn
+  badge_enabled = true
+
+  source {
+    type = "GITHUB"
+    location = "https://github.com/a-bl/auto_search_bot.git"
+    git_clone_depth = 1
+    buildspec = "terraform/buildspec.yml"
+  }
+
+  artifacts {
+    type = "NO_ARTIFACTS"
+  }
+
+  environment {
+    type = "LINUX_CONTAINER"
+    compute_type = "BUILD_GENERAL1_SMALL"
+    image = "aws/codebuild/standard:5.0"
+    privileged_mode = true
+
+    environment_variable {
+      name = "AWS_DEFAULT_REGION"
+      value = data.aws_region.current.name
+    }
+
+    environment_variable {
+      name = "AWS_ACCOUNT_ID"
+      value = data.aws_caller_identity.current.account_id
+    }
+
+    environment_variable {
+      name = "IMAGE_REPO_NAME"
+      value = aws_ecr_repository.repo.name
+    }
+
+    environment_variable {
+      name = "IMAGE_TAG"
+      value = "latest"
+    }
+  }
+
+  logs_config {
+    cloudwatch_logs {
+      status = "DISABLED"
+    }
+  }
+
+#  vpc_config {
+#    vpc_id = aws_vpc.main.id
+
+#    subnets = [for subnet in aws_subnet.priv : subnet.id]
+
+#    security_group_ids = [aws_security_group.app.id]
+#  }
+}
+
+#resource "aws_codebuild_webhook" "github" {
 #}
