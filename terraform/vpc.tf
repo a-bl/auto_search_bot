@@ -1,9 +1,9 @@
 data "aws_availability_zones" "available" {
-  state     = "available"
+  state = "available"
 
   filter {
-    name    = "opt-in-status"
-    values  = ["opt-in-not-required"]
+    name   = "opt-in-status"
+    values = ["opt-in-not-required"]
   }
 }
 
@@ -12,7 +12,7 @@ resource "aws_vpc" "main" {
 }
 
 resource "aws_security_group" "app" {
-  name = "app"
+  name   = "app"
   vpc_id = aws_vpc.main.id
 
   ingress {
@@ -45,14 +45,14 @@ resource "aws_security_group" "app" {
 }
 
 locals {
-  pub_subnets   = zipmap(var.avail_zones,
-                         [for i in range(1, length(var.avail_zones)+1) :
-                          cidrsubnet(aws_vpc.main.cidr_block, 8, i)]
-                        )
-  priv_subnets  = zipmap(var.avail_zones,
-                         [for i in range(3, length(var.avail_zones)+3) :
-                          cidrsubnet(aws_vpc.main.cidr_block, 8, i)]
-                        )
+  pub_subnets = zipmap(var.avail_zones,
+    [for i in range(1, length(var.avail_zones) + 1) :
+    cidrsubnet(aws_vpc.main.cidr_block, 8, i)]
+  )
+  priv_subnets = zipmap(var.avail_zones,
+    [for i in range(3, length(var.avail_zones) + 3) :
+    cidrsubnet(aws_vpc.main.cidr_block, 8, i)]
+  )
 }
 
 resource "aws_internet_gateway" "main" {
@@ -81,9 +81,9 @@ resource "aws_subnet" "pub" {
 }
 
 resource "aws_route_table_association" "pub" {
-  for_each        = toset(var.avail_zones)
-  subnet_id       = aws_subnet.pub[each.key].id
-  route_table_id  = aws_route_table.pub.id
+  for_each       = toset(var.avail_zones)
+  subnet_id      = aws_subnet.pub[each.key].id
+  route_table_id = aws_route_table.pub.id
 }
 
 resource "aws_subnet" "priv" {
@@ -98,9 +98,9 @@ resource "aws_subnet" "priv" {
 }
 
 resource "aws_eip" "eip" {
-  for_each                = toset(var.avail_zones)
-  vpc                     = true
-  depends_on              = [aws_internet_gateway.main]
+  for_each   = toset(var.avail_zones)
+  vpc        = true
+  depends_on = [aws_internet_gateway.main]
 
   tags = {
     Name = each.key
@@ -119,17 +119,17 @@ resource "aws_nat_gateway" "nat" {
 }
 
 resource "aws_route_table" "priv" {
-  for_each  = toset(var.avail_zones)
-  vpc_id    = aws_vpc.main.id
+  for_each = toset(var.avail_zones)
+  vpc_id   = aws_vpc.main.id
 
   route {
-   cidr_block     = "0.0.0.0/0"
-   nat_gateway_id = aws_nat_gateway.nat[each.key].id
+    cidr_block     = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.nat[each.key].id
   }
 }
 
 resource "aws_route_table_association" "priv" {
-  for_each        = toset(var.avail_zones)
-  subnet_id       = aws_subnet.priv[each.key].id
-  route_table_id  = aws_route_table.priv[each.key].id
+  for_each       = toset(var.avail_zones)
+  subnet_id      = aws_subnet.priv[each.key].id
+  route_table_id = aws_route_table.priv[each.key].id
 }

@@ -13,7 +13,3 @@
 #output "lb_ip" {
 #  value = aws_lb.test.dns_name
 #}
-
-output "badge" {
-  value = aws_codebuild_project.app.badge_url
-}
