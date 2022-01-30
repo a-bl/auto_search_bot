@@ -58,13 +58,11 @@ resource "aws_codebuild_project" "app" {
     modes = ["LOCAL_DOCKER_LAYER_CACHE"]
   }
 
-  #  vpc_config {
-  #    vpc_id = aws_vpc.main.id
-
-  #    subnets = [for subnet in aws_subnet.priv : subnet.id]
-
-  #    security_group_ids = [aws_security_group.app.id]
-  #  }
+  #vpc_config {
+  #  vpc_id             = aws_vpc.main.id
+  #  subnets            = [for subnet in aws_subnet.priv : subnet.id]
+  #  security_group_ids = [aws_default_security_group.app.id]
+  #}
 }
 
 resource "aws_codebuild_webhook" "github" {
@@ -80,9 +78,10 @@ resource "aws_codebuild_webhook" "github" {
 }
 
 resource "github_repository_file" "readme" {
-  repository          = data.github_repository.app.name
-  file                = "README.md"
-  content             = templatefile("README.md.tpl", { badge_url = aws_codebuild_project.app.badge_url })
-  overwrite_on_create = true
-  depends_on          = [aws_codebuild_webhook.github]
+  repository    = data.github_repository.app.name
+  file          = "README.md"
+  content       = templatefile("README.md.tpl", { badge_url = aws_codebuild_project.app.badge_url })
+  commit_author = "hashicorp"
+  commit_email  = "hello@hashicorp.com"
+  depends_on    = [aws_codebuild_webhook.github]
 }

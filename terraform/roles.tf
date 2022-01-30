@@ -64,6 +64,35 @@ data "aws_iam_policy_document" "codebuild_service" {
     "ecr:PutImage"]
     resources = ["*"]
   }
+
+  statement {
+    actions = ["ec2:CreateNetworkInterface",
+      "ec2:DescribeDhcpOptions",
+      "ec2:DescribeNetworkInterfaces",
+      "ec2:DeleteNetworkInterface",
+      "ec2:DescribeSubnets",
+      "ec2:DescribeSecurityGroups",
+    "ec2:DescribeVpcs"]
+
+    resources = ["*"]
+  }
+
+  statement {
+    actions   = ["ec2:CreateNetworkInterfacePermission"]
+    resources = ["arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:network-interface/*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "ec2:Subnet"
+      values   = [for subnet in aws_subnet.priv : subnet.arn]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "ec2:AuthorizedService"
+      values   = ["codebuild.amazonaws.com"]
+    }
+  }
 }
 
 data "aws_iam_policy" "ecs_execution_policy" {
