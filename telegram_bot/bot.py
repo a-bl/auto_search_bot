@@ -1,9 +1,7 @@
 import logging
 
 import pandas as pd
-import math
 import psycopg2
-# from scraper import scrape_query
 import requests
 from bs4 import BeautifulSoup
 
@@ -103,19 +101,20 @@ def main():
             await bot.send_message(message.chat.id, 'Проверяю наличие новых предложений по вашему запросу!')
             await bot.send_chat_action(message.chat.id, types.ChatActions.TYPING)
             # await asyncio.sleep(1)
-            print(data['links'])
-            new_links = scrape_query(data['brand'], data['model'], data['year'], data['links'])
-            print(new_links)
+            # new_links = scrape_query(data['brand'], data['model'], data['year'], data['links'])
+            new_links = api_query(data['brand'], data['model'], data['year'], data['links'])
+            print(len(new_links), 'new links')
             if len(new_links) == 0:
                 await bot.send_message(message.chat.id, 'Нет новых предложений 😢')
             else:
                 for link in new_links:
                     if link not in data['links']:
                         data['links'].append(link)
-                print(data['links'])
+                print(len(data['links']), 'links in total')
                 await bot.send_message(message.chat.id, 'Новые предложения по вашему запросу')
 
-                await bot.send_message(message.chat.id, f'{new_links}')
+                # await bot.send_message(message.chat.id, f'{new_links}')
+                await links_index(message, new_links)
 
     @dp.message_handler(commands=['search'])
     async def search(message: types.Message):
@@ -220,7 +219,8 @@ def main():
                                         password=PG_PASS,
                                         host=PG_HOST)
                 cursor = conn.cursor()
-                cursor.execute(f"SELECT year FROM telegram_bot_db WHERE brand = '{data['brand']}' AND model = '{data['model']}'")
+                cursor.execute(
+                    f"SELECT year FROM telegram_bot_db WHERE brand = '{data['brand']}' AND model = '{data['model']}'")
                 auto_years_db = cursor.fetchall()
                 auto_years = []
                 for year in auto_years_db:
@@ -293,7 +293,9 @@ def main():
                 await asyncio.sleep(1)
                 await bot.send_message(message.chat.id, 'Предложения по вашему запросу')
 
-                await links_index(message)
+                # await bot.send_message(message.chat.id, f'{auto_links}')
+                await links_index(message, dbs[0])
+
                 # queries_from = pd.read_csv('queries.csv')
                 queries_df = pd.DataFrame(
                     data={'user': queries['user'], 'brand': queries['brand'], 'model': queries['model'],
@@ -344,8 +346,8 @@ def main():
         return keyboard
 
     @dp.message_handler(commands=["links"])
-    async def links_index(message: types.Message):
-        link_data = dbs[0][0]
+    async def links_index(message: types.Message, links):
+        link_data = links[0]
         keyboard = get_links_keyboard()  # Page: 0
 
         await bot.send_message(
@@ -355,113 +357,56 @@ def main():
         )
 
     @dp.callback_query_handler(links_callback.filter())
-    async def link_page_handler(query: types.CallbackQuery, callback_data: dict):
+    async def link_page_handler(query: types.CallbackQuery, callback_data: dict, links):
         print(callback_data)
         page = int(callback_data.get("page"))
         print(page)
-        link_data = dbs[0][page]
+        link_data = links[page]
         keyboard = get_links_keyboard(page)
 
         await query.message.edit_text(text=f'{link_data}', reply_markup=keyboard)
 
-    def scrape_query(brand, model, year, links):
-        url = 'https://auto.ria.com/uk/legkovie/'
-        params = {'page': 1}
-        # set a number greater than the number of the first page to start the cycle
-        pages = 2
-        n = 0
-
-        itemsBrand = []
-        itemsModel = []
-        itemsPrice = []
-        itemsYear = []
-        itemsRegion = []
-        itemsTransmission = []
-        itemsFuel = []
-        itemsEngineCapacity = []
-        itemsMileage = []
-        itemsLink = []
-
-        while params['page'] <= pages:
-            response = requests.get(url, params=params)
-            soup = BeautifulSoup(response.text, 'lxml')
-            items = soup.find_all('section', class_='ticket-item')
-
-            for n, i in enumerate(items, start=n + 1):
-                itemBrand = i.find('span', class_='blue bold').text.split()[0]
-                itemsBrand.append(itemBrand.replace('-', '_').replace('ЗАЗ', 'ZAZ').replace('ВАЗ', 'VAZ').replace('ГАЗ',
-                    'GAZ').replace('Богдан', 'Bogdan').replace('УАЗ', 'YAZ').replace('ИЖ', 'IZH').replace('Москвич/АЗЛК',
-                    'Moskuych').replace('ЛуАЗ', 'LyAZ'))
-                itemModel = ' '.join(i.find('span', class_='blue bold').text.split()[1::])
-                itemsModel.append(itemModel.split()[0].replace("-", "_"))
-                itemPrice = i.find('span', class_='bold green size22').text.strip()
-                itemsPrice.append(itemPrice)
-                itemYear = i.find('a', class_='address').text.split()[-1]
-                itemsYear.append(itemYear)
-                itemRegion = i.find('li', class_='item-char view-location js-location').text.strip().split(' (')[0]
-                itemsRegion.append(itemRegion)
-                itemTransmission = i.find_all('li', class_='item-char')[3].text.replace(' ', '')
-                itemsTransmission.append(itemTransmission)
-                itemFuel = i.find_all('li', class_='item-char')[2].text.split(',')[0]
-                itemsFuel.append(itemFuel)
-                itemEngineCapacity = i.find_all('li', class_='item-char')[2].text.split(',')[-1]
-                itemsEngineCapacity.append(itemEngineCapacity)
-                itemMileage = i.find('li', class_='item-char js-race').text
-                itemsMileage.append(itemMileage)
-                itemLink = i.find('a', class_='m-link-ticket').get('href')
-                itemsLink.append(itemLink)
-
-                print(
-                    f'{n}: {itemBrand},\n     Model: {itemModel},\n     Price: {itemPrice} $,\n     Year: {itemYear},\n     '
-                              f'Region: {itemRegion},\n     Transmission: {itemTransmission},\n     Fuel type: {itemFuel},\n     '
-                              f'Engine capacity: {itemEngineCapacity},\n     Mileage: {itemMileage}')
-
-            last_page_num = 50
-            pages = last_page_num if pages < last_page_num else pages
-            params['page'] += 1
-
-        df = pd.DataFrame({
-            'brand': itemsBrand,
-            'model': itemsModel,
-            'price': itemsPrice,
-            'year': itemsYear,
-            'region': itemsRegion,
-            'transmission': itemsTransmission,
-            'fuel_type': itemsFuel,
-            'engine_capacity': itemsEngineCapacity,
-            'mileage': itemsMileage,
-            'link': itemsLink
-        })
-
-        conn = psycopg2.connect(dbname=PG_DB,
-                                user=PG_USER,
-                                password=PG_PASS,
-                                host=PG_HOST)
-        cursor = conn.cursor()
-        print('Connecting to db')
+    def api_query(brand, model, year, links):
         new_links = []
-        df_m = df[['model', 'year', 'link']].where(df['brand'] == brand)
-        df_y = df_m[['year', 'link']].where(df_m['model'] == model)
-        df_y = df_y.dropna()
-        df_y['year'] = df_y['year'].astype(int)
-        for link in df_y[df_y['year'] == year]['link']:
-            if link not in links:
-                if str(link) != 'NaN':
-                    new_links.append(link)
-                    cursor.execute('INSERT INTO telegram_bot_db (brand, model, price, year, region, transmission, fuel_type,'
-                                   'engine_capacity, mileage, link) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)',
-                                   (df.loc[df.index[df['link'] == link]]['brand'].to_string(index=False),
-                                    df.loc[df.index[df['link'] == link]]['model'].to_string(index=False),
-                                    df.loc[df.index[df['link'] == link]]['price'].to_string(index=False),
-                                    df.loc[df.index[df['link'] == link]]['year'].to_string(index=False),
-                                    df.loc[df.index[df['link'] == link]]['region'].to_string(index=False),
-                                    df.loc[df.index[df['link'] == link]]['transmission'].to_string(index=False),
-                                    df.loc[df.index[df['link'] == link]]['fuel_type'].to_string(index=False),
-                                    df.loc[df.index[df['link'] == link]]['engine_capacity'].to_string(index=False),
-                                    df.loc[df.index[df['link'] == link]]['mileage'].to_string(index=False),
-                                    df.loc[df.index[df['link'] == link]]['link'].to_string(index=False)
-                                    ))
-                    conn.commit()
+        api_link_ria = 'https://developers.ria.com/auto/search?api_key=' + API_KEY + "&category_id=1"
+        brands_api = 'https://developers.ria.com/auto/categories/1/marks?api_key=' + API_KEY
+        brands_list = requests.get(brands_api).json()
+        for i in range(len(brands_list)):
+            if brands_list[i]['name'] == brand:
+                brand_id = brands_list[i]['value']
+                models_api = 'https://developers.ria.com/auto/categories/1/marks/' + str(
+                    brand_id) + '/models?api_key=' + API_KEY
+                models_list = requests.get(models_api).json()
+                for j in range(len(models_list)):
+                    if models_list[j]['name'] == model:
+                        model_id = models_list[j]['value']
+                        model_search_api = api_link_ria + '&marka_id=' + str(brand_id) + "&model_id=" + str(
+                            model_id) + '&s_yers[0]=' + str(year) + '&po_yers[0]=' + str(year)
+                        model_req = requests.get(model_search_api).json()
+                        ads_id_list = model_req['result']['search_result']['ids']
+                        list_ads = []
+                        for k in range(len(ads_id_list)):
+                            car_api = 'https://developers.ria.com/auto/info?api_key=' + API_KEY + '&auto_id=' + \
+                                      ads_id_list[k]
+                            cars_id_list = requests.get(car_api).json()
+                            car_link = 'https://auto.ria.com/uk' + cars_id_list['linkToView']
+                            list_ads.append(car_link)
+
+                            if car_link not in links:
+                                new_links.append(car_link)
+                                conn = psycopg2.connect(dbname=PG_DB,
+                                                        user=PG_USER,
+                                                        password=PG_PASS,
+                                                        host=PG_HOST)
+                                cursor = conn.cursor()
+                                cursor.execute(
+                                    'INSERT INTO telegram_bot_db (brand, model, year, link) VALUES (%s, %s, %s, %s)',
+                                    (brand, model, year, car_link))
+                                conn.commit()
+                    else:
+                        j += 1
+            else:
+                i += 1
 
         return new_links
 
@@ -470,7 +415,8 @@ def main():
     # dispatcher.add_error_handler(error)
 
     # Start the Bot
-    executor.start_polling(dp)
+
+    executor.start_polling(dp, skip_updates=True)
 
     # Run the bot until you press Ctrl-C or the process receives SIGINT,
     # SIGTERM or SIGABRT. This should be used most of the time, since
