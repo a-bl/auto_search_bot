@@ -14,6 +14,7 @@ resource "aws_codebuild_project" "app" {
   name          = "auto_search_bot"
   service_role  = aws_iam_role.codebuild_role.arn
   badge_enabled = true
+  depends_on    = toset(values(aws_route_table_association.pub))
 
   source {
     type            = "GITHUB"
@@ -58,11 +59,11 @@ resource "aws_codebuild_project" "app" {
     modes = ["LOCAL_DOCKER_LAYER_CACHE"]
   }
 
-  #vpc_config {
-  #  vpc_id             = aws_vpc.main.id
-  #  subnets            = [for subnet in aws_subnet.priv : subnet.id]
-  #  security_group_ids = [aws_default_security_group.app.id]
-  #}
+  vpc_config {
+    vpc_id             = aws_vpc.main.id
+    subnets            = [for subnet in aws_subnet.pub : subnet.id]
+    security_group_ids = [aws_default_security_group.app.id]
+  }
 }
 
 resource "aws_codebuild_webhook" "github" {
