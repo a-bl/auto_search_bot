@@ -1,4 +1,6 @@
 resource "random_pet" "db_user" {
+  separator = "_"
+
   keepers = {
     name = var.app_name
   }
@@ -48,7 +50,8 @@ resource "aws_db_instance" "main" {
   port                   = 5432
   db_subnet_group_name   = aws_db_subnet_group.default.id
   vpc_security_group_ids = [aws_security_group.db.id]
-  name                   = random_pet.db_user.keepers.name
+  skip_final_snapshot    = true
+  name                   = "telegram_bot_db"
   username               = random_pet.db_user.id
   password               = random_password.db_pass.result
 }

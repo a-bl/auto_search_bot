@@ -61,7 +61,7 @@ resource "aws_codebuild_project" "app" {
 
   vpc_config {
     vpc_id             = aws_vpc.main.id
-    subnets            = [for subnet in aws_subnet.pub : subnet.id]
+    subnets            = [for subnet in aws_subnet.priv : subnet.id]
     security_group_ids = [aws_default_security_group.app.id]
   }
 }

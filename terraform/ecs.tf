@@ -1,14 +1,17 @@
 resource "aws_ecs_task_definition" "app" {
   family                   = "auto_search_bot"
-  requires_compatibilities = ["EC2"]
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = 256
+  memory                   = 512
   network_mode             = "awsvpc"
   execution_role_arn       = aws_iam_role.app_execution_role.arn
   depends_on               = [aws_iam_role_policy_attachment.app_ecr]
+
   container_definitions = jsonencode([
     {
-      name   = "auto_search_bot_scraper"
-      image  = "${aws_ecr_repository.repo.repository_url}:latest"
-      memory = 256
+      name      = "auto_search_bot_scraper"
+      image     = "${aws_ecr_repository.repo.repository_url}:latest"
+      essential = false
 
       environment = [
         {
@@ -21,7 +24,7 @@ resource "aws_ecs_task_definition" "app" {
         },
         {
           name  = "PG_PORT"
-          value = "${aws_db_instance.main.port}"
+          value = "${tostring(aws_db_instance.main.port)}"
         },
         {
           name  = "PG_USER"
@@ -43,17 +46,26 @@ resource "aws_ecs_task_definition" "app" {
           valueFrom = "${aws_ssm_parameter.db_pass.arn}"
         }
       ]
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          awslogs-region        = "${data.aws_region.current.name}"
+          awslogs-group         = "ecs_auto_search_bot_scraper"
+          awslogs-create-group  = "true"
+          awslogs-stream-prefix = "ecs"
+        }
+      }
     },
     {
       name      = "auto_search_bot"
       image     = "${aws_ecr_repository.repo.repository_url}:latest"
       essential = true
-      memory    = 256
 
       dependsOn = [
         {
           containerName = "auto_search_bot_scraper"
-          condition     = "SUCCESS"
+          condition     = "START"
         }
       ]
 
@@ -68,7 +80,7 @@ resource "aws_ecs_task_definition" "app" {
         },
         {
           name  = "PG_PORT"
-          value = "${aws_db_instance.main.port}"
+          value = "${tostring(aws_db_instance.main.port)}"
         },
         {
           name  = "PG_USER"
@@ -90,6 +102,16 @@ resource "aws_ecs_task_definition" "app" {
           valueFrom = "${aws_ssm_parameter.db_pass.arn}"
         }
       ]
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          awslogs-region        = "${data.aws_region.current.name}"
+          awslogs-group         = "ecs_auto_search_bot"
+          awslogs-create-group  = "true"
+          awslogs-stream-prefix = "ecs"
+        }
+      }
     }
   ])
 
@@ -100,25 +122,21 @@ resource "aws_ecs_task_definition" "app" {
 }
 
 resource "aws_ecs_cluster" "app" {
-  name = "auto_search_bot"
+  name               = "auto_search_bot"
+  capacity_providers = ["FARGATE"]
 }
 
 resource "aws_ecs_service" "app" {
-  name                = "auto_search_bot"
-  cluster             = aws_ecs_cluster.app.id
-  task_definition     = aws_ecs_task_definition.app.arn
-  scheduling_strategy = "DAEMON"
+  name            = "auto_search_bot"
+  cluster         = aws_ecs_cluster.app.id
+  task_definition = aws_ecs_task_definition.app.arn
+  launch_type     = "FARGATE"
+  desired_count   = 1
+  #scheduling_strategy = "DAEMON"
 
   network_configuration {
-    subnets         = [for subnet in aws_subnet.pub : subnet.id]
-  }
-
-  ordered_placement_strategy {
-    type = "random"
-  }
-
-  placement_constraints {
-    type       = "memberOf"
-    expression = "runningTasksCount == 1"
+    subnets          = [for subnet in aws_subnet.pub : subnet.id]
+    security_groups  = [aws_default_security_group.app.id]
+    assign_public_ip = true
   }
 }

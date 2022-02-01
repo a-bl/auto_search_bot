@@ -17,6 +17,14 @@ data "aws_iam_policy_document" "ecs_assume_role" {
   }
 }
 
+data "aws_iam_policy_document" "ecs_secrets" {
+  statement {
+    actions = ["ssm:GetParameters"]
+    resources = ["${aws_ssm_parameter.db_pass.arn}",
+    "${aws_ssm_parameter.telegram_token.arn}"]
+  }
+}
+
 data "aws_iam_policy_document" "codebuild_assume_role" {
   statement {
     actions = ["sts:AssumeRole"]
@@ -107,10 +115,19 @@ data "aws_iam_policy" "container_images" {
   name = "EC2InstanceProfileForImageBuilderECRContainerBuilds"
 }
 
+data "aws_iam_policy" "logs" {
+  name = "CloudWatchLogsFullAccess"
+}
+
 resource "aws_iam_role" "app_execution_role" {
   name               = "app_execution_role"
   description        = "ECS execution role with access to private ECR repositories"
   assume_role_policy = data.aws_iam_policy_document.ecs_assume_role.json
+
+  inline_policy {
+    name   = "secrets"
+    policy = data.aws_iam_policy_document.ecs_secrets.json
+  }
 }
 
 resource "aws_iam_role_policy_attachment" "app_ecs_default" {
@@ -123,6 +140,11 @@ resource "aws_iam_role_policy_attachment" "app_ecr" {
   policy_arn = data.aws_iam_policy.ecr.arn
 }
 
+resource "aws_iam_role_policy_attachment" "app_logs" {
+  role       = aws_iam_role.app_execution_role.name
+  policy_arn = data.aws_iam_policy.logs.arn
+}
+
 resource "aws_iam_role" "codebuild_role" {
   name               = "codebuild_role"
   description        = "CodeBuild service role with container image build and upload permissions"
@@ -132,6 +154,11 @@ resource "aws_iam_role" "codebuild_role" {
     name   = "codebuild"
     policy = data.aws_iam_policy_document.codebuild_service.json
   }
+}
+
+resource "aws_iam_role_policy_attachment" "codebuild_logs" {
+  role       = aws_iam_role.codebuild_role.name
+  policy_arn = data.aws_iam_policy.logs.arn
 }
 
 #resource "aws_iam_role" "app_task_role" {
