@@ -3,7 +3,7 @@ import logging
 import pandas as pd
 import psycopg2
 import requests
-from bs4 import BeautifulSoup
+
 
 from aiogram import Bot, types
 from aiogram.dispatcher import Dispatcher
@@ -313,12 +313,13 @@ def main():
                 await bot.send_message(message.chat.id, 'Если Вы хотите сохранить Ваш запрос и в дальнейшем получать '
                                                         'рассылку - нажмите кнопку сохранения.\nЕсли Вы хотите продолжить '
                                                         'поиск - нажмите кнопку поиска.', reply_markup=markup)
+                await state.finish()
 
-    links_callback = CallbackData("Link", "page")
+    links_callback = CallbackData("links", "page")
 
-    def get_links_keyboard(page: int = 0) -> types.InlineKeyboardMarkup:
+    def get_links_keyboard(count, page: int = 0) -> types.InlineKeyboardMarkup:
         keyboard = types.InlineKeyboardMarkup(row_width=1)
-        has_next_page = len(dbs[0]) > page + 1
+        has_next_page = count > page + 1
 
         if page != 0:
             keyboard.add(
@@ -348,7 +349,7 @@ def main():
     @dp.message_handler(commands=["links"])
     async def links_index(message: types.Message, links):
         link_data = links[0]
-        keyboard = get_links_keyboard()  # Page: 0
+        keyboard = get_links_keyboard(len(links))  # Page: 0
 
         await bot.send_message(
             chat_id=message.chat.id,
@@ -357,14 +358,13 @@ def main():
         )
 
     @dp.callback_query_handler(links_callback.filter())
-    async def link_page_handler(query: types.CallbackQuery, callback_data: dict, links):
-        print(callback_data)
-        page = int(callback_data.get("page"))
-        print(page)
-        link_data = links[page]
-        keyboard = get_links_keyboard(page)
+    async def link_page_handler(query: types.CallbackQuery, callback_data: dict, state):
+        async with state.proxy() as data:
+            page = int(callback_data.get("page"))
+            link_data = data['links'][page]
+            keyboard = get_links_keyboard(len(data['links']), page)
 
-        await query.message.edit_text(text=f'{link_data}', reply_markup=keyboard)
+            await query.message.edit_text(text=f'{link_data}', reply_markup=keyboard)
 
     def api_query(brand, model, year, links):
         new_links = []
