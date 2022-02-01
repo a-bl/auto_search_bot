@@ -10,6 +10,16 @@ resource "aws_codebuild_source_credential" "github" {
   token       = var.github_token
 }
 
+resource "aws_cloudwatch_log_group" "codebuild" {
+  name              = "/aws/codebuild/${var.app_name}"
+  retention_in_days = 0
+}
+
+resource "aws_cloudwatch_log_stream" "codebuild" {
+  name           = "/aws/codebuild/${var.app_name}/stream"
+  log_group_name = aws_cloudwatch_log_group.codebuild.name
+}
+
 resource "aws_codebuild_project" "app" {
   name          = "auto_search_bot"
   service_role  = aws_iam_role.codebuild_role.arn
@@ -64,6 +74,13 @@ resource "aws_codebuild_project" "app" {
     subnets            = [for subnet in aws_subnet.priv : subnet.id]
     security_group_ids = [aws_default_security_group.app.id]
   }
+
+  logs_config {
+    cloudwatch_logs {
+      group_name  = aws_cloudwatch_log_group.codebuild.name
+      stream_name = aws_cloudwatch_log_stream.codebuild.name
+    }
+  }
 }
 
 resource "aws_codebuild_webhook" "github" {
@@ -84,5 +101,5 @@ resource "github_repository_file" "readme" {
   content       = templatefile("README.md.tpl", { badge_url = aws_codebuild_project.app.badge_url })
   commit_author = "hashicorp"
   commit_email  = "hello@hashicorp.com"
-  depends_on    = [aws_codebuild_webhook.github]
+  depends_on    = [aws_codebuild_webhook.github, aws_ecs_service.app]
 }

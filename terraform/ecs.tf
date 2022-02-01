@@ -1,3 +1,13 @@
+resource "aws_cloudwatch_log_group" "app" {
+  name              = "/aws/ecs/${var.app_name}/bot"
+  retention_in_days = 0
+}
+
+resource "aws_cloudwatch_log_group" "app_scraper" {
+  name              = "/aws/ecs/${var.app_name}/scraper"
+  retention_in_days = 0
+}
+
 resource "aws_ecs_task_definition" "app" {
   family                   = "auto_search_bot"
   requires_compatibilities = ["FARGATE"]
@@ -51,7 +61,7 @@ resource "aws_ecs_task_definition" "app" {
         logDriver = "awslogs"
         options = {
           awslogs-region        = "${data.aws_region.current.name}"
-          awslogs-group         = "ecs_auto_search_bot_scraper"
+          awslogs-group         = "${aws_cloudwatch_log_group.app_scraper.name}"
           awslogs-create-group  = "true"
           awslogs-stream-prefix = "ecs"
         }
@@ -107,7 +117,7 @@ resource "aws_ecs_task_definition" "app" {
         logDriver = "awslogs"
         options = {
           awslogs-region        = "${data.aws_region.current.name}"
-          awslogs-group         = "ecs_auto_search_bot"
+          awslogs-group         = "${aws_cloudwatch_log_group.app.name}"
           awslogs-create-group  = "true"
           awslogs-stream-prefix = "ecs"
         }
