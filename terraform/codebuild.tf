@@ -14,7 +14,7 @@ resource "aws_codebuild_project" "app" {
   name          = "auto_search_bot"
   service_role  = aws_iam_role.codebuild_role.arn
   badge_enabled = true
-  depends_on    = toset(values(aws_route_table_association.pub))
+  depends_on    = [aws_route_table_association.pub]
 
   source {
     type            = "GITHUB"
