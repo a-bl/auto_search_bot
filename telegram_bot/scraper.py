@@ -85,7 +85,7 @@ while params['page'] <= pages:
 
     # last_page_num = int(soup.find('a', class_='page-link js-next').get('data-page'))
     # print(last_page_num)
-    last_page_num = 1407
+    last_page_num = 55
     pages = last_page_num if pages < last_page_num else pages
     params['page'] += 1
 
