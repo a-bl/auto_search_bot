@@ -11,17 +11,30 @@ variable "aws_region" {
   type = string
 }
 
+variable "db_name" {
+  type    = string
+  default = "telegram_bot_db"
+}
+
+variable "db_port" {
+  type    = number
+  default = 5432
+}
+
 variable "env" {
   type = string
 }
 
-variable "github_repo_full_name" {
-  type = string
+variable "priv_ids" {
+  type = list(string)
 }
 
-variable "github_token" {
-  type      = string
-  sensitive = true
+variable "pub_ids" {
+  type = list(string)
+}
+
+variable "sg_id" {
+  type = string
 }
 
 variable "telegram_token" {
@@ -29,6 +42,6 @@ variable "telegram_token" {
   sensitive = true
 }
 
-variable "vpc_cidr" {
+variable "vpc_id" {
   type = string
 }

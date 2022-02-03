@@ -1,7 +1,5 @@
-data "aws_caller_identity" "current" {}
-data "aws_region" "current" {}
 data "github_repository" "app" {
-  full_name = "a-bl/auto_search_bot"
+  full_name = var.github_repo_full_name
 }
 
 resource "aws_codebuild_source_credential" "github" {
@@ -11,24 +9,23 @@ resource "aws_codebuild_source_credential" "github" {
 }
 
 resource "aws_cloudwatch_log_group" "codebuild" {
-  name              = "/aws/codebuild/${var.app_name}"
+  name              = "/aws/codebuild/${var.app_name}/${var.env}"
   retention_in_days = 0
 }
 
 resource "aws_cloudwatch_log_stream" "codebuild" {
-  name           = "/aws/codebuild/${var.app_name}/stream"
+  name           = "/aws/codebuild/${var.app_name}/${var.env}/stream"
   log_group_name = aws_cloudwatch_log_group.codebuild.name
 }
 
 resource "aws_codebuild_project" "app" {
-  name          = "auto_search_bot"
+  name          = "${var.app_name}-${var.env}"
   service_role  = aws_iam_role.codebuild_role.arn
   badge_enabled = true
-  depends_on    = [aws_route_table_association.pub]
 
   source {
     type            = "GITHUB"
-    location        = "https://github.com/a-bl/auto_search_bot.git"
+    location        = data.github_repository.app.http_clone_url
     git_clone_depth = 1
     buildspec       = "terraform/buildspec.yml"
   }
@@ -45,22 +42,32 @@ resource "aws_codebuild_project" "app" {
 
     environment_variable {
       name  = "AWS_DEFAULT_REGION"
-      value = data.aws_region.current.name
+      value = var.aws_region
     }
 
     environment_variable {
       name  = "AWS_ACCOUNT_ID"
-      value = data.aws_caller_identity.current.account_id
+      value = local.account_id
     }
 
     environment_variable {
       name  = "IMAGE_REPO_NAME"
-      value = aws_ecr_repository.repo.name
+      value = var.ecr_name
     }
 
     environment_variable {
       name  = "IMAGE_TAG"
       value = "latest"
+    }
+
+    environment_variable {
+      name  = "ECS_SERVICE_NAME"
+      value = var.ecs_service_name
+    }
+
+    environment_variable {
+      name  = "ECS_CLUSTER_NAME"
+      value = var.ecs_cluster_name
     }
   }
 
@@ -70,9 +77,9 @@ resource "aws_codebuild_project" "app" {
   }
 
   vpc_config {
-    vpc_id             = aws_vpc.main.id
-    subnets            = [for subnet in aws_subnet.priv : subnet.id]
-    security_group_ids = [aws_default_security_group.app.id]
+    vpc_id             = var.vpc_id
+    subnets            = var.priv_ids
+    security_group_ids = [var.sg_id]
   }
 
   logs_config {
@@ -93,13 +100,4 @@ resource "aws_codebuild_webhook" "github" {
       pattern = "PUSH"
     }
   }
-}
-
-resource "github_repository_file" "readme" {
-  repository    = data.github_repository.app.name
-  file          = "README.md"
-  content       = templatefile("README.md.tpl", { badge_url = aws_codebuild_project.app.badge_url })
-  commit_author = "hashicorp"
-  commit_email  = "hello@hashicorp.com"
-  depends_on    = [aws_codebuild_webhook.github, aws_ecs_service.app]
 }

@@ -1,13 +1,20 @@
-variable "api_token" {
-  type      = string
-  sensitive = true
-}
-
 variable "app_name" {
   type = string
 }
 
 variable "aws_region" {
+  type = string
+}
+
+variable "ecr_name" {
+  type = string
+}
+
+variable "ecs_cluster_name" {
+  type = string
+}
+
+variable "ecs_service_name" {
   type = string
 }
 
@@ -24,11 +31,14 @@ variable "github_token" {
   sensitive = true
 }
 
-variable "telegram_token" {
-  type      = string
-  sensitive = true
+variable "priv_ids" {
+  type = list(string)
 }
 
-variable "vpc_cidr" {
+variable "sg_id" {
+  type = string
+}
+
+variable "vpc_id" {
   type = string
 }

@@ -1,15 +1,15 @@
 resource "aws_cloudwatch_log_group" "app" {
-  name              = "/aws/ecs/${var.app_name}/bot"
+  name              = "/aws/ecs/${var.app_name}/${var.env}/bot"
   retention_in_days = 0
 }
 
 resource "aws_cloudwatch_log_group" "app_scraper" {
-  name              = "/aws/ecs/${var.app_name}/scraper"
+  name              = "/aws/ecs/${var.app_name}/${var.env}/scraper"
   retention_in_days = 0
 }
 
 resource "aws_ecs_task_definition" "app" {
-  family                   = "auto_search_bot"
+  family                   = "${var.app_name}-${var.env}"
   requires_compatibilities = ["FARGATE"]
   cpu                      = 256
   memory                   = 512
@@ -19,7 +19,7 @@ resource "aws_ecs_task_definition" "app" {
 
   container_definitions = jsonencode([
     {
-      name      = "auto_search_bot_scraper"
+      name      = "${var.app_name}_scraper"
       image     = "${aws_ecr_repository.repo.repository_url}:latest"
       essential = false
 
@@ -34,7 +34,7 @@ resource "aws_ecs_task_definition" "app" {
         },
         {
           name  = "PG_PORT"
-          value = "${tostring(aws_db_instance.main.port)}"
+          value = "${tostring(var.db_port)}"
         },
         {
           name  = "PG_USER"
@@ -42,7 +42,7 @@ resource "aws_ecs_task_definition" "app" {
         },
         {
           name  = "PG_DB"
-          value = "telegram_bot_db"
+          value = "${var.db_name}"
         }
       ]
 
@@ -54,43 +54,42 @@ resource "aws_ecs_task_definition" "app" {
         {
           name      = "PG_PASS"
           valueFrom = "${aws_ssm_parameter.db_pass.arn}"
+        },
+        {
+          name      = "API_TOKEN"
+          valueFrom = "${aws_ssm_parameter.api_token.arn}"
         }
       ]
 
       logConfiguration = {
         logDriver = "awslogs"
         options = {
-          awslogs-region        = "${data.aws_region.current.name}"
+          awslogs-region        = "${var.aws_region}"
           awslogs-group         = "${aws_cloudwatch_log_group.app_scraper.name}"
-          awslogs-create-group  = "true"
           awslogs-stream-prefix = "ecs"
         }
       }
     },
     {
-      name      = "auto_search_bot"
+      name      = "${var.app_name}"
       image     = "${aws_ecr_repository.repo.repository_url}:latest"
       essential = true
 
       dependsOn = [
         {
-          containerName = "auto_search_bot_scraper"
+          containerName = "${var.app_name}_scraper"
           condition     = "START"
         }
       ]
 
       environment = [
         {
-          name  = "SCRIPT"
-          value = "bot.py"
-        },
-        {
           name  = "PG_HOST"
           value = "${aws_db_instance.main.address}"
         },
         {
           name  = "PG_PORT"
-          value = "${tostring(aws_db_instance.main.port)}"
+          value = "${tostring(var.db_port)}"
         },
         {
           name  = "PG_USER"
@@ -98,7 +97,7 @@ resource "aws_ecs_task_definition" "app" {
         },
         {
           name  = "PG_DB"
-          value = "telegram_bot_db"
+          value = "${var.db_name}"
         }
       ]
 
@@ -110,15 +109,18 @@ resource "aws_ecs_task_definition" "app" {
         {
           name      = "PG_PASS"
           valueFrom = "${aws_ssm_parameter.db_pass.arn}"
+        },
+        {
+          name      = "API_TOKEN"
+          valueFrom = "${aws_ssm_parameter.api_token.arn}"
         }
       ]
 
       logConfiguration = {
         logDriver = "awslogs"
         options = {
-          awslogs-region        = "${data.aws_region.current.name}"
+          awslogs-region        = "${var.aws_region}"
           awslogs-group         = "${aws_cloudwatch_log_group.app.name}"
-          awslogs-create-group  = "true"
           awslogs-stream-prefix = "ecs"
         }
       }
@@ -132,21 +134,19 @@ resource "aws_ecs_task_definition" "app" {
 }
 
 resource "aws_ecs_cluster" "app" {
-  name               = "auto_search_bot"
+  name               = "${var.app_name}-${var.env}"
   capacity_providers = ["FARGATE"]
 }
 
 resource "aws_ecs_service" "app" {
-  name            = "auto_search_bot"
+  name            = "${var.app_name}-${var.env}"
   cluster         = aws_ecs_cluster.app.id
   task_definition = aws_ecs_task_definition.app.arn
   launch_type     = "FARGATE"
   desired_count   = 1
-  #scheduling_strategy = "DAEMON"
 
   network_configuration {
-    subnets          = [for subnet in aws_subnet.pub : subnet.id]
-    security_groups  = [aws_default_security_group.app.id]
-    assign_public_ip = true
+    subnets         = var.priv_ids
+    security_groups = [var.sg_id]
   }
 }
