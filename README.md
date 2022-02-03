@@ -1,1 +1,0 @@
-![codebuild](https://codebuild.eu-central-1.amazonaws.com/badges?uuid=eyJlbmNyeXB0ZWREYXRhIjoidWhaeTJ0U21sSkdzbTBlcUdvdDgzK0hydHJuKzhwdVR4cGZra2cwcThzUGFyeXpNNjk5MEFtdkdKQWw2bm9YOHFMRmJUZG8yN2V0OG5ydmVqemxtS0ZzPSIsIml2UGFyYW1ldGVyU3BlYyI6Ill4b0lPanBvMEpmN1NqM3QiLCJtYXRlcmlhbFNldFNlcmlhbCI6MX0%3D&branch=main)
