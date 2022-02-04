@@ -3,7 +3,7 @@ data "github_repository" "app" {
 }
 
 resource "github_repository_file" "readme" {
-  repository    = data.github_repository.app.name
-  file          = "README.md"
-  content       = templatefile("README.md.tpl", { badge_url = module.codebuild.badge_url })
+  repository = data.github_repository.app.name
+  file       = "README.md"
+  content    = templatefile("README.md.tpl", { badge_url = module.codebuild.badge_url })
 }

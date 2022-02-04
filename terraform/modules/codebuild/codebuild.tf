@@ -99,5 +99,10 @@ resource "aws_codebuild_webhook" "github" {
       type    = "EVENT"
       pattern = "PUSH"
     }
+
+    filter {
+      type    = "EVENT"
+      pattern = "PULL_REQUEST_MERGED"
+    }
   }
 }
