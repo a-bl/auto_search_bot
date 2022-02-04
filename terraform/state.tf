@@ -1,5 +1,15 @@
+terraform {
+  backend "s3" {
+    bucket         = "auto-search-bot-dev"
+    dynamodb_table = "auto-search-bot-dev"
+    region         = "eu-central-1"
+    key            = "terraform.tfstate"
+    encrypt        = true
+  }
+}
+
 resource "aws_s3_bucket" "state" {
-  bucket        = "auto-search-bot"
+  bucket        = "auto-search-bot-dev"
   force_destroy = true
 
   versioning {
